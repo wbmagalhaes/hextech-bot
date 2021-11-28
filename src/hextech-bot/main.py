@@ -8,11 +8,6 @@ from time import sleep
 from utils.timer import timefunc
 from utils.command import Command
 
-# vel = (433 - 102) / 1.
-
-# x, y = 2345, 100
-# w, h = 70, 760
-
 x, y = 2665, 100
 w, h = 70, 760
 
