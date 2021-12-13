@@ -70,11 +70,11 @@ class Command():
         return img
 
     @staticmethod
-    def find_template(img, template, mask, method=cv.TM_CCOEFF_NORMED):
+    def find_template(img, template, mask, method):
         img = img.copy()
 
         # Apply template Matching
-        res = cv.matchTemplate(img, template, method) # mask=mask
+        res = cv.matchTemplate(img, template, method)  # mask=mask
         min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
 
         # If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum
@@ -91,7 +91,7 @@ class Command():
         return val, top_left, bottom_right
 
     @staticmethod
-    def find(img, min_x, target_x, velocity, time, threshold=0.8):
+    def find(img, min_x, target_x, velocity, time, threshold=0.8, method=cv.TM_CCOEFF_NORMED):
 
         results_val = []
         results = []
@@ -100,7 +100,7 @@ class Command():
             template = Command.TEMPLATES[type]
             mask = Command.MASK[type]
 
-            val, top_left, bottom_right = Command.find_template(img, mask, template)
+            val, top_left, bottom_right = Command.find_template(img, template, mask, method=method)
 
             cmd = Command(type, val, top_left, bottom_right)
             cmd.calc_time(min_x, target_x, velocity, time)

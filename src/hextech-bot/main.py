@@ -94,7 +94,7 @@ while CAPTURE.isOpened():
         name = next_line.name
         cmd = next_line['Command']
 
-        queue_next.drop(name)
+        queue_next.drop(name, inplace=True)
         cv.rectangle(frame, (TARGET_X, YMIN), (TARGET_X, YMAX), Command.COLOR[cmd], 2)
 
     exec_df = exec_df.append({
@@ -113,10 +113,6 @@ while CAPTURE.isOpened():
 
 CAPTURE.release()
 cv.destroyAllWindows()
-
-
-exec_df.to_csv('data/queue.csv')
-print(queue_df)
 
 exec_df.to_csv('data/exec.csv')
 print(exec_df)
