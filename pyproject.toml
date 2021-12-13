@@ -10,6 +10,7 @@ PyAutoGUI = "^0.9.53"
 opencv-python = "^4.5.4"
 numpy = "^1.21.4"
 Pillow = "^8.4.0"
+matplotlib = "^3.5.0"
 
 [tool.poetry.dev-dependencies]
 autopep8 = "^1.6.0"
