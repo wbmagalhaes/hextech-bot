@@ -1,73 +1,61 @@
 import cv2 as cv
 
-from time import sleep
-from datetime import datetime
+from time import perf_counter
 
-from PIL import ImageGrab
-
-from utils.command import Command
 from utils.hexbot import HexBot
+from utils.window_capture import WindowCapture
 
-
-XMIN_1, XMAX_1 = 550, 610
-XMIN_2, XMAX_2 = 1050, 1110
-YMIN, YMAX = 100, 800
+XMIN, XMAX = 225, 275
+YMIN, YMAX = 50, 550
+REGION = (XMIN, XMAX, YMIN, YMAX)
 
 METHOD = cv.TM_CCOEFF_NORMED
-THRESHOLD = 0.75
+THRESHOLD = 0.6
 
-TARGET_X = 420
-VELOCITY = -211  # pixel/s
-
+TARGET_X = 135
+VELOCITY = -170  # pixel/s
 TIME_WINDOW = 0.1
-TIME_OFFSET = 0.0
 
-SQUARES = [
-    (XMIN_1, XMAX_1, YMIN, YMAX),
-    (XMIN_2, XMAX_2, YMIN, YMAX),
-]
+BOT = HexBot(REGION, METHOD)
 
-BOT = HexBot(SQUARES, METHOD, THRESHOLD, TARGET_X, VELOCITY, TIME_WINDOW, TIME_OFFSET)
+# WindowCapture.list_window_names()
+wincap = WindowCapture('HextechMayhem')
 
-START_TIME = datetime.now()
-CAPTURE = cv.VideoCapture('data/video_sample.mp4')
-FRAME_LIMIT = 1 / 60
+START_TIME = perf_counter()
 
 frame_count = 0
+prev_time = perf_counter()
 
-while CAPTURE.isOpened():
-    # frame = np.array(ImageGrab.grab(bbox=(x, y, x + w * n, y + h), all_screens=True))
-    # frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
 
-    ret, frame = CAPTURE.read()
-    if not ret:
-        print('Stream end. Exiting...')
-        break
-
+while True:
+    # time control
+    now = perf_counter()
+    current_time = now - START_TIME
     frame_count += 1
 
-    now = datetime.now()
-    current_time = (now - START_TIME).total_seconds()
+    # capture
+    frame = wincap.get_screenshot()
 
-    BOT.process_frame(frame, current_time)
+    # frame processing
+    BOT.process_frame(frame, frame_count, current_time, THRESHOLD, TARGET_X, VELOCITY)
+    BOT.show_queue(frame, current_time, TARGET_X, VELOCITY)
 
-    cmd = BOT.next_command(current_time)
+    # excute
+    tmax = current_time + TIME_WINDOW
+    cmd = BOT.next_command(current_time, tmax)
+    BOT.execute_command(current_time, frame_count, cmd)
 
-    if cmd:
-        BOT.execute_command(frame_count, cmd)
-        cv.rectangle(frame, (TARGET_X, YMIN), (TARGET_X, YMAX), Command.COLOR[cmd], 2)
+    # fps counter
+    fps = 1 / (now - prev_time)
+    cv.putText(frame, f'FPS: {fps:0.0f}', (10, 20), cv.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+    prev_time = now
 
-    cv.imshow('frame', frame)
+    # show
+    cv.imshow('HextechBot', frame)
+
+    # wait key 'Q' to exit
     if cv.waitKey(1) == ord('q'):
+        cv.destroyAllWindows()
+        BOT.save_exec()
+        BOT.save_queue()
         break
-
-    time_diff = (datetime.now() - now).total_seconds()
-    if (time_diff < FRAME_LIMIT):
-        sleep(FRAME_LIMIT - time_diff)
-
-
-CAPTURE.release()
-cv.destroyAllWindows()
-
-BOT.save_queue()
-BOT.save_exec()
