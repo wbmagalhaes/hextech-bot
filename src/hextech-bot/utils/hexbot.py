@@ -4,10 +4,10 @@ import pandas as pd
 
 import pyautogui
 
-from utils.timer import timefunc
+from utils.command import Command
 from utils.image_processing import prepare_image
 
-from utils.command import Command
+pyautogui.PAUSE = 0
 
 
 class HexBot:
@@ -19,7 +19,9 @@ class HexBot:
         self.queue_df = pd.DataFrame(columns=['Time', 'Command'])
         self.exec_df = pd.DataFrame(columns=['Frame', 'Command'])
 
-    @timefunc(verbose=False)
+        self.last_cmd = None
+        self.last_cmd_y = 10000
+
     def process_frame(self, frame, frame_count, time, threshold, target_x, velocity):
 
         cut = frame[self.ymin:self.ymax, self.xmin:self.xmax, :]
@@ -81,10 +83,11 @@ class HexBot:
         if cmd:
             self.queue_df = self.queue_df.append({
                 'Frame': frame_count,
-                'Time': cmd.time,
+                'Time': round(cmd.time, 2),
                 'Command': cmd.cmd_type,
                 'Value': cmd.val,
-                'Y': cmd.y
+                'X': cmd.x,
+                'Y': cmd.y,
             }, ignore_index=True)
 
     def show_queue(self, frame, time, target_x, velocity):
@@ -105,20 +108,33 @@ class HexBot:
 
             color = Command.COLOR[cmd]
             cv.rectangle(frame, pt1, pt2, color, 2)
-            cv.putText(frame, f'{val:0.2f}', pt1, cv.FONT_HERSHEY_SIMPLEX, 0.4, color, 2)
+            cv.putText(frame, f'{val:0.2f}', pt1, cv.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
     def next_command(self, tmin, tmax) -> Command:
-        query = f'Time >= {tmin} & Time <= {tmax}'
+        query = f'Time <= {tmax}'
         queue_next = self.queue_df.query(query)
 
         if queue_next.shape[0] == 0:
             return None
 
-        cmd_counts = queue_next["Command"].value_counts()
+        cmd_counts = queue_next['Command'].value_counts()
         cmd = cmd_counts.index[0]
 
         self.queue_df.drop(queue_next.index, inplace=True)
 
+        action = Command.ACTION_NAME[cmd]
+
+        if self.last_cmd == cmd and action == 'JUMP':
+            cmd_y = queue_next['Y'].mean()
+
+            last_y = self.last_cmd_y
+            self.last_cmd_y = cmd_y
+
+            dist = abs(last_y - cmd_y)
+            if self.last_cmd == cmd and dist < 100:
+                cmd = None
+
+        self.last_cmd = cmd
         return cmd
 
     def execute_command(self, time, n_frame, cmd):
@@ -126,12 +142,14 @@ class HexBot:
             return
 
         button = Command.BUTTONS[cmd]
+        action = Command.ACTION_NAME[cmd]
+
         pyautogui.press(button)
 
         self.exec_df = self.exec_df.append({
             'Frame': n_frame,
             'Time': time,
-            'Command': Command.ACTION_NAME[cmd],
+            'Command': action,
         }, ignore_index=True)
 
     def save_queue(self):

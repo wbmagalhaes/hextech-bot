@@ -35,15 +35,6 @@ class Command:
         CommandType.FAST_BOMB: (247, 243, 24),
     }
 
-    TIME_OFFSET = {
-        CommandType.NORM_JUMP: 0,
-        CommandType.FAST_JUMP: 0.01,
-        CommandType.NORM_DOWN: 0,
-        CommandType.FAST_DOWN: 0.01,
-        CommandType.NORM_BOMB: 0,
-        CommandType.FAST_BOMB: 0.01,
-    }
-
     ACTION_NAME = {
         CommandType.NORM_JUMP: 'JUMP',
         CommandType.FAST_JUMP: 'JUMP',
@@ -72,4 +63,4 @@ class Command:
         dx = target_x - self.x
         dt = dx / velocity
 
-        self.time = time + dt + Command.TIME_OFFSET[cmd_type]
+        self.time = time + dt

@@ -86,7 +86,7 @@ class WindowCapture:
 
         cDC.BitBlt((0, 0), (self.w, self.h), dcObj, (self.offset_x, self.offset_y), win32con.SRCCOPY)
 
-        # convert the raw data into a format opencv can read
+        # convert the raw data into a format open-cv can read
         signedIntsArray = dataBitMap.GetBitmapBits(True)
         img = np.fromstring(signedIntsArray, dtype='uint8')
         img.shape = (self.h, self.w, 4)
