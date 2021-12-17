@@ -19,9 +19,6 @@ class HexBot:
         self.queue_df = pd.DataFrame(columns=['Time', 'Command'])
         self.exec_df = pd.DataFrame(columns=['Frame', 'Command'])
 
-        self.last_cmd = None
-        self.last_cmd_y = 10000
-
     def process_frame(self, frame, frame_count, time, threshold, target_x, velocity):
 
         cut = frame[self.ymin:self.ymax, self.xmin:self.xmax, :]
@@ -30,8 +27,7 @@ class HexBot:
         cmd = self.find_cmd(gray, threshold, target_x, velocity, time)
         self.add_to_queue(frame_count, cmd)
 
-        self.queue_df.drop_duplicates(subset=['Time', 'Command'], inplace=True)
-        self.queue_df.sort_values(by=['Time'], inplace=True)
+        self.clean_similar()
 
         height, width, _ = cut.shape
         cv.rectangle(cut, (0, 0), (width, height), (0, 0, 255), 2)
@@ -90,6 +86,10 @@ class HexBot:
                 'Y': cmd.y,
             }, ignore_index=True)
 
+    def clean_similar(self):
+        self.queue_df.drop_duplicates(subset=['Time', 'Command'], inplace=True)
+        self.queue_df.sort_values(by=['Time'], inplace=True)
+
     def show_queue(self, frame, time, target_x, velocity):
         for _, row in self.queue_df.iterrows():
 
@@ -114,27 +114,18 @@ class HexBot:
         query = f'Time <= {tmax}'
         queue_next = self.queue_df.query(query)
 
-        if queue_next.shape[0] == 0:
+        n = queue_next.shape[0]
+        if n == 0:
             return None
+
+        if n > 1:
+            print(n)
 
         cmd_counts = queue_next['Command'].value_counts()
         cmd = cmd_counts.index[0]
 
         self.queue_df.drop(queue_next.index, inplace=True)
 
-        action = Command.ACTION_NAME[cmd]
-
-        if self.last_cmd == cmd and action == 'JUMP':
-            cmd_y = queue_next['Y'].mean()
-
-            last_y = self.last_cmd_y
-            self.last_cmd_y = cmd_y
-
-            dist = abs(last_y - cmd_y)
-            if self.last_cmd == cmd and dist < 100:
-                cmd = None
-
-        self.last_cmd = cmd
         return cmd
 
     def execute_command(self, time, n_frame, cmd):
