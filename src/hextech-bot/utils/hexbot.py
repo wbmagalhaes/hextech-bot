@@ -1,8 +1,8 @@
+import pyautogui
+
 import cv2 as cv
 import numpy as np
 import pandas as pd
-
-import pyautogui
 
 from utils.command import Command
 from utils.command_type import CommandType

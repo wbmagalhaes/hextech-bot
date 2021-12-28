@@ -40,13 +40,13 @@ for i, path in enumerate(paths):
 
 diff = []
 for i, path in enumerate(paths):
-    d = plot_diff(pd.read_csv(path))
-    diff.extend(d)
+    df = pd.read_csv(path)
+    x = df['Time']
+    y = np.diff(x)
+    diff.extend(y)
 
-# mean = np.mean(diff)
-# median = np.median(diff)
-# print(mean)
-# print(median)
+print('mean', np.mean(diff))
+print('median', np.median(diff))
 
 plt.xlim(-2, 90)
 plt.ylim(-20, 20)
