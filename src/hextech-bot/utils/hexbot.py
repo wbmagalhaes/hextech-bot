@@ -6,13 +6,20 @@ import pandas as pd
 
 from utils.command import Command
 from utils.command_type import CommandType
-from utils.image_processing import prepare_image
-
-
-pyautogui.PAUSE = 0
 
 
 class HexBot:
+
+    xmin, xmax, ymin, ymax = (0, 0, 0, 0)
+    method = cv.TM_CCOEFF_NORMED
+    threshold = 0.80
+    interval = 0
+
+    current_time = 0
+    start_jump = 0
+
+    queue_df = pd.DataFrame(columns=['Time', 'Command'])
+    exec_df = pd.DataFrame(columns=['Time', 'Command'])
 
     def __init__(self, region, method, threshold: float, interval: float):
         self.xmin, self.xmax, self.ymin, self.ymax = region
@@ -20,11 +27,7 @@ class HexBot:
         self.threshold = threshold
         self.interval = interval
 
-        self.current_time = 0
-        self.start_jump = 0
-
-        self.queue_df = pd.DataFrame(columns=['Time', 'Command'])
-        self.exec_df = pd.DataFrame(columns=['Time', 'Command'])
+        pyautogui.PAUSE = 0
 
     def set_current_time(self, time: float):
         self.current_time = time - self.start_jump
@@ -40,14 +43,21 @@ class HexBot:
         height, width, _ = cut.shape
         cv.rectangle(cut, (0, 0), (width, height), (0, 0, 255), 2)
 
+    @staticmethod
+    def prepare_image(img):
+        # img_gray = img.copy()
+        img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        # img_gray = cv.Canny(img, 0, 255)
+        return img_gray
+
     def find_cmd(self, image, target_x, velocity) -> Command:
         results_val = []
         results = []
 
-        gray = prepare_image(image)
+        gray = HexBot.prepare_image(image)
 
         for type in Command.TYPES:
-            template = prepare_image(Command.TEMPLATES[type])
+            template = HexBot.prepare_image(Command.TEMPLATES[type])
 
             val, top_left, bottom_right = self.find_template(gray, template)
             cmd = Command(type, val, (self.xmin, self.ymin), top_left, bottom_right, target_x, velocity, self.current_time)
@@ -59,7 +69,6 @@ class HexBot:
         result = results[max_ind]
 
         if result.val > self.threshold and result.val <= 1:
-
             template = Command.TEMPLATES[result.cmd_type]
             mask = Command.MASK[result.cmd_type]
 

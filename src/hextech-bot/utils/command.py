@@ -1,7 +1,6 @@
 import cv2 as cv
 
 from utils.command_type import CommandType
-from utils.image_processing import prepare_image
 
 
 class Command:
