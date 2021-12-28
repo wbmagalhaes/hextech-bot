@@ -12,11 +12,12 @@ REGION = (XMIN, XMAX, YMIN, YMAX)
 
 METHOD = cv.TM_CCOEFF_NORMED
 THRESHOLD = 0.60
+INTERVAL = 0.25
 
 TARGET_X = 155
 VELOCITY = -170  # pixel/s
 
-BOT = HexBot(REGION, METHOD, THRESHOLD)
+BOT = HexBot(REGION, METHOD, THRESHOLD, INTERVAL)
 
 # WindowCapture.list_window_names()
 wincap = WindowCapture('HextechMayhem')
@@ -60,5 +61,5 @@ while True:
     # wait key 'Q' to exit
     if cv.waitKey(1) == ord('q'):
         cv.destroyAllWindows()
-        BOT.save_exec('data/exec_1-1 (2).csv')
+        BOT.save_exec('data/exec_1-1 (1).csv')
         break

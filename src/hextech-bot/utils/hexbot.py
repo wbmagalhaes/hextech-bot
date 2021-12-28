@@ -14,10 +14,11 @@ pyautogui.PAUSE = 0
 
 class HexBot:
 
-    def __init__(self, region, method, threshold):
+    def __init__(self, region, method, threshold: float, interval: float):
         self.xmin, self.xmax, self.ymin, self.ymax = region
         self.method = method
         self.threshold = threshold
+        self.interval = interval
 
         self.current_time = 0
         self.start_jump = 0
@@ -25,10 +26,10 @@ class HexBot:
         self.queue_df = pd.DataFrame(columns=['Time', 'Command'])
         self.exec_df = pd.DataFrame(columns=['Time', 'Command'])
 
-    def set_current_time(self, time):
+    def set_current_time(self, time: float):
         self.current_time = time - self.start_jump
 
-    def process_frame(self, frame, target_x, velocity):
+    def process_frame(self, frame, target_x: float, velocity: float):
         cut = frame[self.ymin:self.ymax, self.xmin:self.xmax, :]
 
         cmd = self.find_cmd(cut, target_x, velocity)
@@ -92,16 +93,14 @@ class HexBot:
 
     def add_to_queue(self, cmd: Command):
         if cmd:
-
             if self.start_jump == 0 and cmd.cmd_type == CommandType.NORM_JUMP:
-                self.start_jump = cmd.time - 0.1
-                self.current_time = self.current_time - self.start_jump
-
+                self.start_jump = cmd.time - (self.interval / 2)
+                self.current_time -= self.start_jump
                 cmd.time = 0
 
             self.queue_df = self.queue_df.append({
                 'Time': cmd.time,
-                'RoundTime': round(cmd.time, 1),
+                'RoundTime': np.round(cmd.time / self.interval) * self.interval,
                 'Command': cmd.cmd_type,
                 'Value': cmd.val,
                 'X': cmd.x,
@@ -112,9 +111,8 @@ class HexBot:
         self.queue_df.drop_duplicates(subset=['RoundTime', 'Command'], inplace=True)
         self.queue_df.sort_values(by=['Time'], inplace=True)
 
-    def show_queue(self, frame, target_x, velocity):
+    def show_queue(self, frame, target_x: float, velocity: float):
         for _, row in self.queue_df.iterrows():
-
             cmd = row['Command']
             cmd_time = row['Time']
             y = int(row['Y'])
@@ -144,10 +142,9 @@ class HexBot:
         cmd = cmd_counts.index[0]
 
         self.queue_df.drop(queue_next.index, inplace=True)
-
         return cmd
 
-    def execute_command(self, cmd):
+    def execute_command(self, cmd: CommandType):
         if cmd is None:
             return
 
@@ -161,5 +158,5 @@ class HexBot:
             'Command': action,
         }, ignore_index=True)
 
-    def save_exec(self, path='data/exec.csv'):
+    def save_exec(self, path: str = 'data/exec.csv'):
         self.exec_df.to_csv(path, index=None)
