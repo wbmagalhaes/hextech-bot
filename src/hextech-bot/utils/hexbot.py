@@ -5,44 +5,51 @@ import pandas as pd
 import pyautogui
 
 from utils.command import Command
+from utils.command_type import CommandType
 from utils.image_processing import prepare_image
+
 
 pyautogui.PAUSE = 0
 
 
 class HexBot:
 
-    def __init__(self, region, method):
+    def __init__(self, region, method, threshold):
         self.xmin, self.xmax, self.ymin, self.ymax = region
         self.method = method
+        self.threshold = threshold
+
+        self.current_time = 0
+        self.start_jump = 0
 
         self.queue_df = pd.DataFrame(columns=['Time', 'Command'])
-        self.exec_df = pd.DataFrame(columns=['Frame', 'Command'])
+        self.exec_df = pd.DataFrame(columns=['Time', 'Command'])
 
-    def process_frame(self, frame, frame_count, time, threshold, target_x, velocity):
+    def set_current_time(self, time):
+        self.current_time = time - self.start_jump
 
+    def process_frame(self, frame, target_x, velocity):
         cut = frame[self.ymin:self.ymax, self.xmin:self.xmax, :]
-        gray = prepare_image(cut)
 
-        cmd = self.find_cmd(gray, threshold, target_x, velocity, time)
-        self.add_to_queue(frame_count, cmd)
+        cmd = self.find_cmd(cut, target_x, velocity)
+        self.add_to_queue(cmd)
 
         self.clean_similar()
 
         height, width, _ = cut.shape
         cv.rectangle(cut, (0, 0), (width, height), (0, 0, 255), 2)
 
-    def find_cmd(self, img, threshold, target_x, velocity, time) -> Command:
-
+    def find_cmd(self, image, target_x, velocity) -> Command:
         results_val = []
         results = []
 
-        for type in Command.TYPES:
-            template = Command.TEMPLATES[type]
-            mask = Command.MASK[type]
+        gray = prepare_image(image)
 
-            val, top_left, bottom_right = self.find_template(img, template, mask)
-            cmd = Command(type, val, (self.xmin, self.ymin), top_left, bottom_right, target_x, velocity, time)
+        for type in Command.TYPES:
+            template = prepare_image(Command.TEMPLATES[type])
+
+            val, top_left, bottom_right = self.find_template(gray, template)
+            cmd = Command(type, val, (self.xmin, self.ymin), top_left, bottom_right, target_x, velocity, self.current_time)
 
             results.append(cmd)
             results_val.append(val)
@@ -50,36 +57,51 @@ class HexBot:
         max_ind = np.argmax(results_val)
         result = results[max_ind]
 
-        if result.val > threshold:
-            return result
+        if result.val > self.threshold and result.val <= 1:
+
+            template = Command.TEMPLATES[result.cmd_type]
+            mask = Command.MASK[result.cmd_type]
+
+            val, _, _ = self.find_template(image, template, mask)
+
+            if val > self.threshold:
+                result.val = val
+                return result
 
         return None
 
-    def find_template(self, img, template, mask):
+    def find_template(self, img, template, mask=None):
         img = img.copy()
 
         # Apply template Matching
-        res = cv.matchTemplate(img, template, self.method)  # mask=mask
+        res = cv.matchTemplate(img, template, self.method, mask=mask)
         min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
 
         # If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum
         if self.method in [cv.TM_SQDIFF, cv.TM_SQDIFF_NORMED]:
-            val = min_val
+            val = 1 - min_val
             top_left = min_loc
         else:
             val = max_val
             top_left = max_loc
 
-        h, w = template.shape
+        h, w = template.shape[:2]
 
         bottom_right = (top_left[0] + w, top_left[1] + h)
         return val, top_left, bottom_right
 
-    def add_to_queue(self, frame_count, cmd: Command):
+    def add_to_queue(self, cmd: Command):
         if cmd:
+
+            if self.start_jump == 0 and cmd.cmd_type == CommandType.NORM_JUMP:
+                self.start_jump = cmd.time - 0.1
+                self.current_time = self.current_time - self.start_jump
+
+                cmd.time = 0
+
             self.queue_df = self.queue_df.append({
-                'Frame': frame_count,
-                'Time': round(cmd.time, 2),
+                'Time': cmd.time,
+                'RoundTime': round(cmd.time, 1),
                 'Command': cmd.cmd_type,
                 'Value': cmd.val,
                 'X': cmd.x,
@@ -87,10 +109,10 @@ class HexBot:
             }, ignore_index=True)
 
     def clean_similar(self):
-        self.queue_df.drop_duplicates(subset=['Time', 'Command'], inplace=True)
+        self.queue_df.drop_duplicates(subset=['RoundTime', 'Command'], inplace=True)
         self.queue_df.sort_values(by=['Time'], inplace=True)
 
-    def show_queue(self, frame, time, target_x, velocity):
+    def show_queue(self, frame, target_x, velocity):
         for _, row in self.queue_df.iterrows():
 
             cmd = row['Command']
@@ -98,7 +120,7 @@ class HexBot:
             y = int(row['Y'])
             val = row['Value']
 
-            dt = cmd_time - time
+            dt = cmd_time - self.current_time
             dx = velocity * dt
             x = int(target_x - dx)
 
@@ -110,16 +132,13 @@ class HexBot:
             cv.rectangle(frame, pt1, pt2, color, 2)
             cv.putText(frame, f'{val:0.2f}', pt1, cv.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
-    def next_command(self, tmin, tmax) -> Command:
-        query = f'Time <= {tmax}'
+    def next_command(self) -> Command:
+        query = f'Time <= {self.current_time}'
         queue_next = self.queue_df.query(query)
 
         n = queue_next.shape[0]
         if n == 0:
             return None
-
-        if n > 1:
-            print(n)
 
         cmd_counts = queue_next['Command'].value_counts()
         cmd = cmd_counts.index[0]
@@ -128,7 +147,7 @@ class HexBot:
 
         return cmd
 
-    def execute_command(self, time, n_frame, cmd):
+    def execute_command(self, cmd):
         if cmd is None:
             return
 
@@ -138,13 +157,9 @@ class HexBot:
         pyautogui.press(button)
 
         self.exec_df = self.exec_df.append({
-            'Frame': n_frame,
-            'Time': time,
+            'Time': self.current_time,
             'Command': action,
         }, ignore_index=True)
 
-    def save_queue(self):
-        self.queue_df.to_csv('data/queue.csv')
-
-    def save_exec(self):
-        self.exec_df.to_csv('data/exec.csv')
+    def save_exec(self, path='data/exec.csv'):
+        self.exec_df.to_csv(path, index=None)

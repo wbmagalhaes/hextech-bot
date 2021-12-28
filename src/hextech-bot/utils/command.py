@@ -9,12 +9,12 @@ class Command:
     TYPES = [type for type in CommandType]
 
     TEMPLATES = {
-        CommandType.NORM_JUMP: prepare_image(cv.imread('data/jump_template.png')),
-        CommandType.FAST_JUMP: prepare_image(cv.imread('data/jump_fast_template.png')),
-        CommandType.NORM_DOWN: prepare_image(cv.imread('data/down_template.png')),
-        CommandType.FAST_DOWN: prepare_image(cv.imread('data/down_fast_template.png')),
-        CommandType.NORM_BOMB: prepare_image(cv.imread('data/bomb_template.png')),
-        CommandType.FAST_BOMB: prepare_image(cv.imread('data/bomb_fast_template.png')),
+        CommandType.NORM_JUMP: cv.imread('data/jump_template.png'),
+        CommandType.FAST_JUMP: cv.imread('data/jump_fast_template.png'),
+        CommandType.NORM_DOWN: cv.imread('data/down_template.png'),
+        CommandType.FAST_DOWN: cv.imread('data/down_fast_template.png'),
+        CommandType.NORM_BOMB: cv.imread('data/bomb_template.png'),
+        CommandType.FAST_BOMB: cv.imread('data/bomb_fast_template.png'),
     }
 
     MASK = {
