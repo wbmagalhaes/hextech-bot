@@ -68,5 +68,5 @@ while True:
     # wait key 'Q' to exit
     if cv.waitKey(1) == ord('q'):
         cv.destroyAllWindows()
-        BOT.save_exec('data/exec_1-4 100%.csv')
+        BOT.save_exec('data/1-4 100%.csv')
         break

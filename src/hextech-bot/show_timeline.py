@@ -3,9 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 paths = [
-    'data/exec_1-1 100%.csv',
-    'data/exec_1-2 100%.csv',
-    'data/exec_1-3 100%.csv',
+    'data/1-1 100%.csv',
+    'data/1-2 100%.csv',
+    'data/1-3 100%.csv',
 ]
 
 
