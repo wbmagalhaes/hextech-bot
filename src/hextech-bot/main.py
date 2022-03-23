@@ -6,17 +6,24 @@ from utils.hexbot import HexBot
 from utils.command import Command
 from utils.window_capture import WindowCapture
 
+# região do jogo a analisado pelo bot
 XMIN, XMAX = 280, 330
 YMIN, YMAX = 10, 550
 REGION = (XMIN, XMAX, YMIN, YMAX)
 
+# método de busca por template
 METHOD = cv.TM_CCOEFF_NORMED
+# match mínimo para considerar uma ação
 THRESHOLD = 0.60
+# intervalo mínimo entre as ações
 INTERVAL = 0.25
 
+# posição do player
 TARGET_X = 155
-VELOCITY = -170  # pixel/s
+# velocidade das ações em pixel/s
+VELOCITY = -170
 
+# o bot
 BOT = HexBot(REGION, METHOD, THRESHOLD, INTERVAL)
 
 # WindowCapture.list_window_names()
@@ -44,7 +51,7 @@ while True:
 
     if cmd:
         cv.rectangle(frame, (TARGET_X, YMIN), (TARGET_X, YMAX), Command.COLOR[cmd], 3)
-        # cv.imwrite(f'data/frames/frame{frame_count}_{cmd}.png', frame)
+        cv.imwrite(f'data/frames/frame{frame_count}_{cmd}.png', frame)
 
     # execute
     BOT.execute_command(cmd)
@@ -61,5 +68,5 @@ while True:
     # wait key 'Q' to exit
     if cv.waitKey(1) == ord('q'):
         cv.destroyAllWindows()
-        BOT.save_exec('data/exec_1-1 (1).csv')
+        BOT.save_exec('data/exec_1-4 100%.csv')
         break

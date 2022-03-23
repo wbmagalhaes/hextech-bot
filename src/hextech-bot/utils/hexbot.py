@@ -83,11 +83,9 @@ class HexBot:
     def find_template(self, img, template, mask=None):
         img = img.copy()
 
-        # Apply template Matching
         res = cv.matchTemplate(img, template, self.method, mask=mask)
         min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
 
-        # If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum
         if self.method in [cv.TM_SQDIFF, cv.TM_SQDIFF_NORMED]:
             val = 1 - min_val
             top_left = min_loc
@@ -101,20 +99,23 @@ class HexBot:
         return val, top_left, bottom_right
 
     def add_to_queue(self, cmd: Command):
-        if cmd:
-            if self.start_jump == 0 and cmd.cmd_type == CommandType.NORM_JUMP:
-                self.start_jump = cmd.time - (self.interval / 2)
-                self.current_time -= self.start_jump
-                cmd.time = 0
+        if cmd is None:
+            return
 
-            self.queue_df = self.queue_df.append({
-                'Time': cmd.time,
-                'RoundTime': np.round(cmd.time / self.interval) * self.interval,
-                'Command': cmd.cmd_type,
-                'Value': cmd.val,
-                'X': cmd.x,
-                'Y': cmd.y,
-            }, ignore_index=True)
+        # se é o primeiro comando, grava o offset de tempo
+        if self.start_jump == 0 and cmd.cmd_type == CommandType.NORM_JUMP:
+            self.start_jump = cmd.time - (self.interval / 2)
+            self.current_time -= self.start_jump
+            cmd.time = 0
+
+        self.queue_df = self.queue_df.append({
+            'Time': cmd.time,
+            'RoundTime': np.floor(cmd.time / self.interval) * self.interval,
+            'Command': cmd.cmd_type,
+            'Value': cmd.val,
+            'X': cmd.x,
+            'Y': cmd.y,
+        }, ignore_index=True)
 
     def clean_similar(self):
         self.queue_df.drop_duplicates(subset=['RoundTime', 'Command'], inplace=True)
@@ -139,7 +140,7 @@ class HexBot:
             cv.rectangle(frame, pt1, pt2, color, 2)
             cv.putText(frame, f'{val:0.2f}', pt1, cv.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
 
-    def next_command(self) -> Command:
+    def next_command(self) -> CommandType:
         query = f'Time <= {self.current_time}'
         queue_next = self.queue_df.query(query)
 

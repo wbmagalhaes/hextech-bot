@@ -3,12 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 paths = [
-    'data/exec_1-1 (0).csv',
-    'data/exec_1-1 (1).csv',
-    'data/exec_1-1 (2).csv',
-    'data/exec_1-1 (3).csv',
-    'data/exec_1-1 (4).csv',
-    'data/exec_1-1 (5).csv',
+    'data/exec_1-1 100%.csv',
+    'data/exec_1-2 100%.csv',
+    'data/exec_1-3 100%.csv',
 ]
 
 
@@ -18,7 +15,7 @@ def plot_interval(interval):
 
 
 def plot_df(df, offset, cmap='brg'):
-    x = df['Time']  # np.round(df['Time'] / 0.25) * 0.25
+    x = np.round(df['Time'] / 0.25) * 0.25
     y = [offset] * len(x)
     c = df['Command'].map({'JUMP': 0, 'BOMB': 1, 'DOWN': 2})
     plt.scatter(x, y, c=c, s=30, cmap=cmap)
