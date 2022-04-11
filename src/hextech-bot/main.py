@@ -14,7 +14,7 @@ REGION = (XMIN, XMAX, YMIN, YMAX)
 # método de busca por template
 METHOD = cv.TM_CCOEFF_NORMED
 # match mínimo para considerar uma ação
-THRESHOLD = 0.60
+THRESHOLD = 0.85
 # intervalo mínimo entre as ações
 INTERVAL = 0.25
 
@@ -31,42 +31,54 @@ wincap = WindowCapture('HextechMayhem')
 
 frame_count = 0
 prev_time = perf_counter()
-
+started = False
 
 while True:
-    # time control
-    frame_count += 1
-    now = perf_counter()
-    BOT.set_current_time(now)
-
     # capture
     frame = wincap.get_screenshot()
 
-    # frame processing
-    BOT.process_frame(frame, TARGET_X, VELOCITY)
-    BOT.show_queue(frame, TARGET_X, VELOCITY)
+    if started:
+        # time control
+        frame_count += 1
+        now = perf_counter()
+        BOT.set_current_time(now)
 
-    # get next
-    cmd = BOT.next_command()
+        # save frame
+        # cv.imwrite(f'data/frames/frame{frame_count}.png', frame)
 
-    if cmd:
-        cv.rectangle(frame, (TARGET_X, YMIN), (TARGET_X, YMAX), Command.COLOR[cmd], 3)
-        cv.imwrite(f'data/frames/frame{frame_count}_{cmd}.png', frame)
+        # frame processing
+        BOT.process_frame(frame, TARGET_X, VELOCITY)
+        BOT.show_queue(frame, TARGET_X, VELOCITY)
 
-    # execute
-    BOT.execute_command(cmd)
+        # get next
+        cmd = BOT.next_command()
 
-    # fps counter
-    fps = 1 / (now - prev_time)
+        if cmd:
+            cv.rectangle(frame, (TARGET_X, YMIN), (TARGET_X, YMAX), Command.COLOR[cmd], 3)
+            # cv.imwrite(f'data/frames/frame{frame_count}_{Command.ACTION_NAME[cmd]}.png', frame)
 
-    cv.putText(frame, f'FPS: {fps:0.0f}', (10, 20), cv.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
-    prev_time = now
+        # execute
+        BOT.execute_command(cmd)
+
+        # fps counter
+        fps = 1 / (now - prev_time)
+
+        cv.putText(frame, f'FPS: {fps:0.0f}', (10, 20), cv.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+        prev_time = now
 
     # show
     cv.imshow('HextechBot', frame)
 
+    # wait key 'E' to start
+    key = cv.waitKey(1)
+    if key == ord('e'):
+        started = True
+
+        BOT.clear_commands()
+        frame_count = 0
+
     # wait key 'Q' to exit
-    if cv.waitKey(1) == ord('q'):
+    elif key == ord('q'):
         cv.destroyAllWindows()
-        BOT.save_exec('data/1-4 100%.csv')
+        BOT.save_exec('data/2-2.csv')
         break

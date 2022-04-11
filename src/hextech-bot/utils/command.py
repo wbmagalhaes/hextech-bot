@@ -1,6 +1,14 @@
 import cv2 as cv
+from enum import Enum
 
-from utils.command_type import CommandType
+
+class CommandType(Enum):
+    NORM_JUMP = 1
+    FAST_JUMP = 2
+    NORM_DOWN = 3
+    FAST_DOWN = 4
+    NORM_BOMB = 5
+    FAST_BOMB = 6
 
 
 class Command:
@@ -54,6 +62,8 @@ class Command:
 
     def __init__(self, cmd_type: CommandType, val: float, ref_xy: tuple, top_left: tuple, bottom_right: tuple, target_x: float, velocity: float, time: float) -> None:
         self.cmd_type = cmd_type
+        self.name = Command.ACTION_NAME[cmd_type]
+
         self.val = val
 
         self.x = (top_left[0] + bottom_right[0]) / 2 + ref_xy[0]

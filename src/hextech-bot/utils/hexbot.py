@@ -4,8 +4,7 @@ import cv2 as cv
 import numpy as np
 import pandas as pd
 
-from utils.command import Command
-from utils.command_type import CommandType
+from utils.command import Command, CommandType
 
 
 class HexBot:
@@ -32,16 +31,18 @@ class HexBot:
     def set_current_time(self, time: float):
         self.current_time = time - self.start_jump
 
-    def process_frame(self, frame, target_x: float, velocity: float):
+    def process_frame(self, frame, target_x: float, velocity: float, verbose=False) -> Command:
         cut = frame[self.ymin:self.ymax, self.xmin:self.xmax, :]
 
-        cmd = self.find_cmd(cut, target_x, velocity)
+        cmd = self.find_cmd(cut, target_x, velocity, verbose)
         self.add_to_queue(cmd)
 
         self.clean_similar()
 
         height, width, _ = cut.shape
         cv.rectangle(cut, (0, 0), (width, height), (0, 0, 255), 2)
+
+        return cmd
 
     @staticmethod
     def prepare_image(img):
@@ -50,33 +51,40 @@ class HexBot:
         # img_gray = cv.Canny(img, 0, 255)
         return img_gray
 
-    def find_cmd(self, image, target_x, velocity) -> Command:
-        results_val = []
-        results = []
+    def find_cmd_type(self, type, img, target_x, velocity, verbose=False) -> Command:
+        template = HexBot.prepare_image(Command.TEMPLATES[type])
+        mask = Command.MASK[type]
 
+        val, top_left, bottom_right = self.find_template(img, template, mask)
+        cmd = Command(type, val, (self.xmin, self.ymin), top_left, bottom_right, target_x, velocity, self.current_time)
+
+        if verbose:
+            print(cmd.name, cmd.val)
+
+        return cmd
+
+    def confirm_comand(self, img, type: CommandType, verbose=False) -> float:
+        template = Command.TEMPLATES[type]
+        mask = Command.MASK[type]
+        val, _, _ = self.find_template(img, template, mask)
+
+        if verbose:
+            print("Confirmation:", type, val)
+
+        return val
+
+    def find_cmd(self, image, target_x, velocity, verbose=False) -> Command:
         gray = HexBot.prepare_image(image)
 
-        for type in Command.TYPES:
-            template = HexBot.prepare_image(Command.TEMPLATES[type])
-
-            val, top_left, bottom_right = self.find_template(gray, template)
-            cmd = Command(type, val, (self.xmin, self.ymin), top_left, bottom_right, target_x, velocity, self.current_time)
-
-            results.append(cmd)
-            results_val.append(val)
-
-        max_ind = np.argmax(results_val)
+        results = [self.find_cmd_type(type, gray, target_x, velocity, verbose) for type in Command.TYPES]
+        max_ind = np.argmax([result.val for result in results])
         result = results[max_ind]
 
         if result.val > self.threshold and result.val <= 1:
-            template = Command.TEMPLATES[result.cmd_type]
-            mask = Command.MASK[result.cmd_type]
-
-            val, _, _ = self.find_template(image, template, mask)
-
+            val = self.confirm_comand(image, result.cmd_type, verbose)
             if val > self.threshold:
                 result.val = val
-                return result
+            return result
 
         return None
 
@@ -121,10 +129,23 @@ class HexBot:
         self.queue_df.drop_duplicates(subset=['RoundTime', 'Command'], inplace=True)
         self.queue_df.sort_values(by=['Time'], inplace=True)
 
+    @staticmethod
+    def draw_cmd_rect(frame, x, y, color, val):
+        s = 20
+        pt1 = (x - s, y - s)
+        pt2 = (x + s, y + s)
+        pt_text = (x - s, y + s + 15)
+        cv.rectangle(frame, pt1, pt2, color, 2)
+        cv.putText(frame, f'{val:0.2f}', pt_text, cv.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
+
+    def show_command(self, frame, cmd: Command):
+        HexBot.draw_cmd_rect(frame, int(cmd.x), int(cmd.y), Command.COLOR[cmd.cmd_type], cmd.val)
+
     def show_queue(self, frame, target_x: float, velocity: float):
         for _, row in self.queue_df.iterrows():
-            cmd = row['Command']
+            cmd_type = row['Command']
             cmd_time = row['Time']
+            color = Command.COLOR[cmd_type]
             y = int(row['Y'])
             val = row['Value']
 
@@ -132,13 +153,7 @@ class HexBot:
             dx = velocity * dt
             x = int(target_x - dx)
 
-            s = 20
-            pt1 = (x - s, y - s)
-            pt2 = (x + s, y + s)
-
-            color = Command.COLOR[cmd]
-            cv.rectangle(frame, pt1, pt2, color, 2)
-            cv.putText(frame, f'{val:0.2f}', pt1, cv.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+            HexBot.draw_cmd_rect(frame, x, y, color, val)
 
     def next_command(self) -> CommandType:
         query = f'Time <= {self.current_time}'
@@ -154,12 +169,12 @@ class HexBot:
         self.queue_df.drop(queue_next.index, inplace=True)
         return cmd
 
-    def execute_command(self, cmd: CommandType):
-        if cmd is None:
+    def execute_command(self, cmd_type: CommandType):
+        if cmd_type is None:
             return
 
-        button = Command.BUTTONS[cmd]
-        action = Command.ACTION_NAME[cmd]
+        button = Command.BUTTONS[cmd_type]
+        action = Command.ACTION_NAME[cmd_type]
 
         pyautogui.press(button)
 
@@ -167,6 +182,12 @@ class HexBot:
             'Time': self.current_time,
             'Command': action,
         }, ignore_index=True)
+
+    def clear_commands(self):
+        self.start_jump = 0
+        self.current_time = 0
+        self.queue_df.drop(self.queue_df.index, inplace=True)
+        self.exec_df.drop(self.exec_df.index, inplace=True)
 
     def save_exec(self, path: str = 'data/exec.csv'):
         self.exec_df.to_csv(path, index=None)
